@@ -4,7 +4,10 @@ const $ = id => document.getElementById(id);
 const money = n => "₹" + Number(n || 0).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2});
 const today = () => new Date().toISOString().slice(0,10);
 const esc = s => String(s ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const config = { url:"YOUR_SUPABASE_PROJECT_URL", key:"YOUR_SUPABASE_ANON_PUBLIC_KEY" };
+const config = {
+  url: "PASTE_YOUR_SUPABASE_PROJECT_URL_HERE",
+  key: "PASTE_YOUR_SUPABASE_PUBLISHABLE_KEY_HERE"
+};
 let db=null, session=null, profile=null, products=[], customers=[], sales=[], ledger=[], cart=[], reportSales=[], authMode="login";
 let busy=false;
 
