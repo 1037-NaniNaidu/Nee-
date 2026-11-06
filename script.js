@@ -588,3 +588,775 @@ function renderDashboard(content) {
 /* =========================================
    END OF PART 2
 ========================================= */
+/* =========================================
+   PART 3 - PRODUCTS
+========================================= */
+
+function renderProducts(content) {
+  const data = getData();
+
+  content.innerHTML = `
+    <div class="section-head">
+      <h3>Product Management</h3>
+      <button class="primary"
+        onclick="openProductForm()">
+        + Add Product
+      </button>
+    </div>
+
+    <input id="productSearch"
+      placeholder="Search products..."
+      oninput="filterProducts()">
+
+    <div id="productFormArea"></div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Price</th>
+            <th>Remaining Stock</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="productTable"></tbody>
+      </table>
+    </div>
+  `;
+
+  drawProducts();
+}
+
+function drawProducts() {
+  const data = getData();
+  const table = $("productTable");
+
+  if (!table) return;
+
+  if (!data.products.length) {
+    table.innerHTML = `
+      <tr>
+        <td colspan="4" class="empty">
+          No products added yet.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  table.innerHTML = data.products.map(product => `
+    <tr>
+      <td>${escapeHTML(product.name)}</td>
+      <td>${money(product.price)}</td>
+      <td>${Number(product.stock || 0)}</td>
+      <td>
+        <div class="actions">
+          <button class="secondary"
+            onclick="editProduct('${product.id}')">
+            Edit
+          </button>
+
+          <button class="danger"
+            onclick="deleteProduct('${product.id}')">
+            Delete
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join("");
+}
+
+function filterProducts() {
+  const search = $("productSearch").value.toLowerCase();
+
+  document.querySelectorAll("#productTable tr").forEach(row => {
+    row.style.display =
+      row.textContent.toLowerCase().includes(search)
+        ? ""
+        : "none";
+  });
+}
+
+function openProductForm(product = null) {
+  editingProductId = product ? product.id : null;
+
+  $("productFormArea").innerHTML = `
+    <div class="form-card">
+      <h3>${product ? "Edit Product" : "Add Product"}</h3>
+
+      <label>Product Name
+        <input id="productName"
+          value="${escapeHTML(product?.name || "")}">
+      </label>
+
+      <label>Selling Price (₹)
+        <input id="productPrice"
+          type="number" min="0" step="0.01"
+          value="${product?.price ?? ""}">
+      </label>
+
+      <label>Total Stock
+        <input id="productStock"
+          type="number" min="0" step="1"
+          value="${product?.stock ?? ""}">
+      </label>
+
+      <div class="form-actions">
+        <button class="primary"
+          onclick="saveProduct()">
+          Save Product
+        </button>
+
+        <button class="secondary"
+          onclick="closeProductForm()">
+          Cancel
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function closeProductForm() {
+  editingProductId = null;
+  $("productFormArea").innerHTML = "";
+}
+
+function saveProduct() {
+  const data = getData();
+
+  const name = $("productName").value.trim();
+  const price = Number($("productPrice").value);
+  const stock = Number($("productStock").value);
+
+  if (!name || $("productPrice").value === "" ||
+      $("productStock").value === "") {
+    showToast("Please complete all product fields.");
+    return;
+  }
+
+  if (!Number.isFinite(price) || price < 0 ||
+      !Number.isInteger(stock) || stock < 0) {
+    showToast("Enter a valid price and stock.");
+    return;
+  }
+
+  if (editingProductId) {
+    const product = data.products.find(
+      item => item.id === editingProductId
+    );
+
+    if (product) {
+      product.name = name;
+      product.price = price;
+      product.stock = stock;
+    }
+  } else {
+    data.products.push({
+      id: makeId(),
+      name,
+      price,
+      stock,
+      createdAt: new Date().toISOString()
+    });
+  }
+
+  saveData();
+  closeProductForm();
+  drawProducts();
+  showToast("Product saved.");
+}
+
+function editProduct(id) {
+  const product = getData().products.find(
+    item => item.id === id
+  );
+
+  if (product) openProductForm(product);
+}
+
+function deleteProduct(id) {
+  const data = getData();
+
+  if (!confirm("Move this product to Recycle Bin?")) return;
+
+  const index = data.products.findIndex(
+    item => item.id === id
+  );
+
+  if (index < 0) return;
+
+  const product = data.products.splice(index, 1)[0];
+
+  data.bin.push({
+    id: makeId(),
+    type: "product",
+    record: product,
+    deletedAt: new Date().toISOString()
+  });
+
+  saveData();
+  drawProducts();
+  showToast("Product moved to Recycle Bin.");
+}
+
+/* =========================================
+   PART 3 - CUSTOMERS
+========================================= */
+
+function renderCustomers(content) {
+  const data = getData();
+
+  content.innerHTML = `
+    <div class="section-head">
+      <h3>Customer Management</h3>
+
+      <button class="primary"
+        onclick="openCustomerForm()">
+        + Add Customer
+      </button>
+    </div>
+
+    <input id="customerSearch"
+      placeholder="Search customers..."
+      oninput="filterCustomers()">
+
+    <div id="customerFormArea"></div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Phone</th>
+            <th>Total Purchases</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+
+        <tbody id="customerTable"></tbody>
+      </table>
+    </div>
+  `;
+
+  drawCustomers();
+}
+
+function drawCustomers() {
+  const data = getData();
+  const table = $("customerTable");
+
+  if (!table) return;
+
+  if (!data.customers.length) {
+    table.innerHTML = `
+      <tr>
+        <td colspan="4" class="empty">
+          No customers added yet.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  table.innerHTML = data.customers.map(customer => {
+    const purchases = data.sales
+      .filter(sale => sale.customerId === customer.id);
+
+    const total = totalSales(purchases);
+
+    return `
+      <tr>
+        <td>${escapeHTML(customer.name)}</td>
+        <td>${escapeHTML(customer.phone || "—")}</td>
+        <td>${money(total)}</td>
+        <td>
+          <div class="actions">
+            <button class="secondary"
+              onclick="editCustomer('${customer.id}')">
+              Edit
+            </button>
+
+            <button class="secondary"
+              onclick="viewCustomer('${customer.id}')">
+              History
+            </button>
+
+            <button class="danger"
+              onclick="deleteCustomer('${customer.id}')">
+              Delete
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function filterCustomers() {
+  const search = $("customerSearch").value.toLowerCase();
+
+  document.querySelectorAll("#customerTable tr").forEach(row => {
+    row.style.display =
+      row.textContent.toLowerCase().includes(search)
+        ? ""
+        : "none";
+  });
+}
+
+function openCustomerForm(customer = null) {
+  editingCustomerId = customer ? customer.id : null;
+
+  $("customerFormArea").innerHTML = `
+    <div class="form-card">
+      <h3>${customer ? "Edit Customer" : "Add Customer"}</h3>
+
+      <label>Customer Name
+        <input id="customerName"
+          value="${escapeHTML(customer?.name || "")}">
+      </label>
+
+      <label>Phone Number
+        <input id="customerPhone"
+          inputmode="tel"
+          value="${escapeHTML(customer?.phone || "")}">
+      </label>
+
+      <label>Additional Information
+        <textarea id="customerInfo">${escapeHTML(
+          customer?.info || ""
+        )}</textarea>
+      </label>
+
+      <div class="form-actions">
+        <button class="primary"
+          onclick="saveCustomer()">
+          Save Customer
+        </button>
+
+        <button class="secondary"
+          onclick="closeCustomerForm()">
+          Cancel
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function closeCustomerForm() {
+  editingCustomerId = null;
+  $("customerFormArea").innerHTML = "";
+}
+
+function saveCustomer() {
+  const data = getData();
+
+  const name = $("customerName").value.trim();
+  const phone = $("customerPhone").value.trim();
+  const info = $("customerInfo").value.trim();
+
+  if (!name) {
+    showToast("Enter customer name.");
+    return;
+  }
+
+  if (editingCustomerId) {
+    const customer = data.customers.find(
+      item => item.id === editingCustomerId
+    );
+
+    if (customer) {
+      customer.name = name;
+      customer.phone = phone;
+      customer.info = info;
+    }
+  } else {
+    data.customers.push({
+      id: makeId(),
+      name,
+      phone,
+      info,
+      createdAt: new Date().toISOString()
+    });
+  }
+
+  saveData();
+  closeCustomerForm();
+  drawCustomers();
+  showToast("Customer saved.");
+}
+
+function editCustomer(id) {
+  const customer = getData().customers.find(
+    item => item.id === id
+  );
+
+  if (customer) openCustomerForm(customer);
+}
+
+function deleteCustomer(id) {
+  const data = getData();
+
+  if (!confirm("Move this customer to Recycle Bin?")) return;
+
+  const index = data.customers.findIndex(
+    item => item.id === id
+  );
+
+  if (index < 0) return;
+
+  const customer = data.customers.splice(index, 1)[0];
+
+  data.bin.push({
+    id: makeId(),
+    type: "customer",
+    record: customer,
+    deletedAt: new Date().toISOString()
+  });
+
+  saveData();
+  drawCustomers();
+  showToast("Customer moved to Recycle Bin.");
+}
+
+function viewCustomer(id) {
+  const data = getData();
+
+  const customer = data.customers.find(
+    item => item.id === id
+  );
+
+  if (!customer) return;
+
+  const purchases = data.sales.filter(
+    sale => sale.customerId === id
+  );
+
+  const total = totalSales(purchases);
+
+  $("pageContent").innerHTML = `
+    <div class="section-head">
+      <h3>${escapeHTML(customer.name)}</h3>
+
+      <button class="secondary"
+        onclick="showPage('customers')">
+        Back
+      </button>
+    </div>
+
+    <div class="panel">
+      <p>Phone: ${escapeHTML(customer.phone || "—")}</p>
+      <p>Total purchases: <b>${money(total)}</b></p>
+      <p>Number of sales: <b>${purchases.length}</b></p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          ${purchases.map(sale => `
+            <tr>
+              <td>${formatDate(sale.date)}</td>
+              <td>${money(sale.total)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+/* =========================================
+   PART 3 - SALES
+========================================= */
+
+function renderSales(content) {
+  const data = getData();
+
+  content.innerHTML = `
+    <div class="section-head">
+      <h3>Create New Sale</h3>
+    </div>
+
+    <div class="form-card">
+      <label>Select Customer
+        <select id="saleCustomer">
+          <option value="">General Sale</option>
+
+          ${data.customers.map(customer => `
+            <option value="${customer.id}">
+              ${escapeHTML(customer.name)}
+            </option>
+          `).join("")}
+        </select>
+      </label>
+
+      <label>Select Product
+        <select id="saleProduct">
+          <option value="">Choose product</option>
+
+          ${data.products.map(product => `
+            <option value="${product.id}">
+              ${escapeHTML(product.name)}
+              — ${money(product.price)}
+              — Stock: ${product.stock}
+            </option>
+          `).join("")}
+        </select>
+      </label>
+
+      <label>Quantity
+        <input id="saleQuantity"
+          type="number" min="1" step="1" value="1">
+      </label>
+
+      <button class="primary"
+        onclick="addToCart()">
+        Add to Cart
+      </button>
+    </div>
+
+    <div class="panel">
+      <h3>Cart</h3>
+
+      <div id="cartArea"></div>
+
+      <h3 id="cartTotal">Total: ₹0.00</h3>
+
+      <button class="primary"
+        onclick="completeSale()">
+        Confirm Sale
+      </button>
+
+      <button class="secondary"
+        onclick="clearCart()">
+        Clear Cart
+      </button>
+    </div>
+  `;
+
+  drawCart();
+}
+
+function addToCart() {
+  const data = getData();
+
+  const productId = $("saleProduct").value;
+  const quantity = Number($("saleQuantity").value);
+
+  const product = data.products.find(
+    item => item.id === productId
+  );
+
+  if (!product) {
+    showToast("Select a product.");
+    return;
+  }
+
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    showToast("Enter a valid quantity.");
+    return;
+  }
+
+  const existing = cart.find(
+    item => item.productId === productId
+  );
+
+  const alreadyAdded = existing ? existing.quantity : 0;
+
+  if (alreadyAdded + quantity > Number(product.stock)) {
+    showToast("Not enough stock available.");
+    return;
+  }
+
+  if (existing) {
+    existing.quantity += quantity;
+  } else {
+    cart.push({
+      productId,
+      name: product.name,
+      price: Number(product.price),
+      quantity
+    });
+  }
+
+  drawCart();
+  showToast("Added to cart.");
+}
+
+function drawCart() {
+  const area = $("cartArea");
+
+  if (!area) return;
+
+  if (!cart.length) {
+    area.innerHTML = `
+      <div class="empty">Your cart is empty.</div>
+    `;
+
+    $("cartTotal").textContent = "Total: ₹0.00";
+    return;
+  }
+
+  area.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Price</th>
+            <th>Quantity</th>
+            <th>Total</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          ${cart.map((item, index) => `
+            <tr>
+              <td>${escapeHTML(item.name)}</td>
+              <td>${money(item.price)}</td>
+
+              <td>
+                <input type="number"
+                  min="1"
+                  value="${item.quantity}"
+                  onchange="changeCartQuantity(${index}, this.value)">
+              </td>
+
+              <td>${money(item.price * item.quantity)}</td>
+
+              <td>
+                <button class="danger"
+                  onclick="removeCartItem(${index})">
+                  Remove
+                </button>
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  const total = cart.reduce(
+    (sum, item) =>
+      sum + item.price * item.quantity,
+    0
+  );
+
+  $("cartTotal").textContent = "Total: " + money(total);
+}
+
+function changeCartQuantity(index, value) {
+  const data = getData();
+  const quantity = Number(value);
+  const item = cart[index];
+
+  if (!item) return;
+
+  const product = data.products.find(
+    product => product.id === item.productId
+  );
+
+  if (!Number.isInteger(quantity) || quantity <= 0 ||
+      !product || quantity > Number(product.stock)) {
+    showToast("Invalid quantity or insufficient stock.");
+    drawCart();
+    return;
+  }
+
+  item.quantity = quantity;
+  drawCart();
+}
+
+function removeCartItem(index) {
+  cart.splice(index, 1);
+  drawCart();
+}
+
+function clearCart() {
+  cart = [];
+  drawCart();
+}
+
+function completeSale() {
+  const data = getData();
+
+  if (!cart.length) {
+    showToast("Your cart is empty.");
+    return;
+  }
+
+  for (const item of cart) {
+    const product = data.products.find(
+      product => product.id === item.productId
+    );
+
+    if (!product || product.stock < item.quantity) {
+      showToast("Stock changed. Check your cart.");
+      return;
+    }
+  }
+
+  const customerId = $("saleCustomer").value;
+
+  const customer = data.customers.find(
+    item => item.id === customerId
+  );
+
+  const total = cart.reduce(
+    (sum, item) =>
+      sum + item.price * item.quantity,
+    0
+  );
+
+  const sale = {
+    id: makeId(),
+    date: todayKey(),
+    time: new Date().toLocaleTimeString("en-IN"),
+    customerId: customerId || "",
+    customerName: customer ? customer.name : "General Sale",
+    items: cart.map(item => ({ ...item })),
+    total
+  };
+
+  cart.forEach(item => {
+    const product = data.products.find(
+      product => product.id === item.productId
+    );
+
+    product.stock -= item.quantity;
+  });
+
+  data.sales.push(sale);
+
+  if (!saveDatabase()) {
+    data.sales.pop();
+
+    cart.forEach(item => {
+      const product = data.products.find(
+        product => product.id === item.productId
+      );
+
+      if (product) product.stock += item.quantity;
+    });
+
+    return;
+  }
+
+  cart = [];
+
+  showToast("Sale recorded successfully.");
+  showPage("sales");
+}
+
+/* =========================================
+   END OF PART 3
+========================================= */
