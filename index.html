@@ -1,1 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1565c0">
+  <title>Areev Sales Manager</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
 
+  <div id="authScreen" class="auth-screen">
+    <div class="auth-card">
+      <h1>Areev Sales Manager</h1>
+      <p>Manage your business simply.</p>
+
+      <div class="auth-tabs">
+        <button id="loginTab" class="active" onclick="showAuth('login')">Login</button>
+        <button id="registerTab" onclick="showAuth('register')">Register</button>
+      </div>
+
+      <form id="loginForm">
+        <label>Registered phone number</label>
+        <input id="loginPhone" type="tel" required placeholder="Phone number">
+        <label>Password</label>
+        <input id="loginPassword" type="password" required placeholder="Password">
+        <button class="primary-btn full" type="submit">Login</button>
+      </form>
+
+      <form id="registerForm" hidden>
+        <label>Full name</label>
+        <input id="regName" required placeholder="Your name">
+
+        <label>Phone number</label>
+        <input id="regPhone" type="tel" required placeholder="Phone number">
+
+        <label>Gender</label>
+        <select id="regGender" required>
+          <option value="">Select gender</option>
+          <option>Male</option>
+          <option>Female</option>
+          <option>Other</option>
+          <option>Prefer not to say</option>
+        </select>
+
+        <label>Business type</label>
+        <input id="regBusiness" required placeholder="e.g. Grocery shop">
+
+        <label>Create password</label>
+        <input id="regPassword" type="password" minlength="6" required>
+
+        <label>Confirm password</label>
+        <input id="regConfirm" type="password" minlength="6" required>
+
+        <button class="primary-btn full" type="submit">Create account</button>
+      </form>
+
+      <p class="small-note">
+        This initial version stores account information on this device.
+        It does not yet provide cloud account recovery.
+      </p>
+    </div>
+  </div>
+
+  <div id="app" hidden>
+    <header class="topbar">
+      <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+      <div>
+        <strong>Areev Sales Manager</strong>
+        <small id="businessHeader"></small>
+      </div>
+      <button class="profile-mini" onclick="navigate('profile')">👤</button>
+    </header>
+
+    <div class="app-layout">
+      <aside id="sidebar" class="sidebar">
+        <div class="side-brand">
+          <h2>Areev</h2>
+          <small>Sales Manager</small>
+        </div>
+
+        <nav id="sideNav">
+          <button data-page="dashboard" onclick="navigate('dashboard')">▦ Dashboard</button>
+          <button data-page="products" onclick="navigate('products')">▣ Products</button>
+          <button data-page="customers" onclick="navigate('customers')">♙ Customers</button>
+          <button data-page="sales" onclick="navigate('sales')">▤ Sales</button>
+          <button data-page="reports" onclick="navigate('reports')">▥ Reports</button>
+          <button data-page="dailyNotes" onclick="navigate('dailyNotes')">📝 Daily Sales Notes</button>
+          <button data-page="profile" onclick="navigate('profile')">♙ Profile</button>
+          <button data-page="settings" onclick="navigate('settings')">⚙ Settings</button>
+          <button data-page="recycle" onclick="navigate('recycle')">♲ Recycle Bin</button>
+        </nav>
+
+        <button class="logout-btn" onclick="logout()">Log out</button>
+      </aside>
+
+      <main id="mainContent" class="main-content">
+
+        <section id="page-dashboard" class="page">
+          <div class="page-heading">
+            <div>
+              <h1>Dashboard</h1>
+              <p>Welcome to your business overview.</p>
+            </div>
+            <span id="todayDate"></span>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-card">
+              <span>Today's Sales</span>
+              <h2 id="todayTotal">₹0</h2>
+            </div>
+            <div class="stat-card">
+              <span>Total Sales</span>
+              <h2 id="allTotal">₹0</h2>
+            </div>
+            <div class="stat-card">
+              <span>Products</span>
+              <h2 id="productCount">0</h2>
+            </div>
+            <div class="stat-card">
+              <span>Customers</span>
+              <h2 id="customerCount">0</h2>
+            </div>
+            <div class="stat-card">
+              <span>Low Stock</span>
+              <h2 id="lowStockCount">0</h2>
+            </div>
+          </div>
+
+          <h2 class="section-title">Quick access</h2>
+          <div class="quick-grid">
+            <button onclick="navigate('products')">＋ Add Products</button>
+            <button onclick="navigate('customers')">＋ Add Customers</button>
+            <button onclick="navigate('sales')">＋ New Sale</button>
+            <button onclick="navigate('reports')">View Reports</button>
+            <button onclick="navigate('dailyNotes')">Daily Sales Notes</button>
+            <button onclick="navigate('recycle')">Recycle Bin</button>
+          </div>
+
+          <div class="panel">
+            <h2>Recent Sales</h2>
+            <div id="recentSales"></div>
+          </div>
+        </section>
+
+        <section id="page-products" class="page" hidden>
+          <div class="page-heading">
+            <div>
+              <h1>Products</h1>
+              <p>Manage your products and stock.</p>
+            </div>
+            <button class="primary-btn" onclick="openProductForm()">＋ Add Product</button>
+          </div>
+
+          <div id="productForm" class="panel" hidden>
+            <h2 id="productFormTitle">Add Product</h2>
+            <form id="saveProductForm">
+              <input id="productId" type="hidden">
+              <label>Product name</label>
+              <input id="productName" required>
+              <label>Selling price (₹)</label>
+              <input id="productPrice" type="number" min="0" step="0.01" required>
+              <label>Total stock</label>
+              <input id="productStock" type="number" min="0" step="1" required>
+              <div class="form-actions">
+                <button class="primary-btn" type="submit">Save Product</button>
+                <button class="secondary-btn" type="button" onclick="closeProductForm()">Cancel</button>
+              </div>
+            </form>
+          </div>
+
+          <input id="productSearch" class="search-input" placeholder="Search products..." oninput="renderProducts()">
+          <div id="productsList" class="panel"></div>
+        </section>
+
+        <section id="page-customers" class="page" hidden>
+          <div class="page-heading">
+            <div>
+              <h1>Customers</h1>
+              <p>Manage customer details and history.</p>
+            </div>
+            <button class="primary-btn" onclick="openCustomerForm()">＋ Add Customer</button>
+          </div>
+
+          <div id="customerForm" class="panel" hidden>
+            <h2 id="customerFormTitle">Add Customer</h2>
+            <form id="saveCustomerForm">
+              <input id="customerId" type="hidden">
+              <label>Customer name</label>
+              <input id="customerName" required>
+              <label>Phone number</label>
+              <input id="customerPhone" type="tel">
+              <label>Notes</label>
+              <textarea id="customerInfo"></textarea>
+              <div class="form-actions">
+                <button class="primary-btn" type="submit">Save Customer</button>
+                <button class="secondary-btn" type="button" onclick="closeCustomerForm()">Cancel</button>
+              </div>
+            </form>
+          </div>
+
+          <input id="customerSearch" class="search-input" placeholder="Search customers..." oninput="renderCustomers()">
+          <div id="customersList" class="panel"></div>
+        </section>
+
+        <section id="page-sales" class="page" hidden>
+          <div class="page-heading">
+            <div>
+              <h1>New Sale</h1>
+              <p>Create an actual sales transaction.</p>
+            </div>
+          </div>
+
+          <div class="panel">
+            <label>Customer</label>
+            <select id="saleCustomer">
+              <option value="">General sale / No customer</option>
+            </select>
+
+            <div class="form-grid">
+              <div>
+                <label>Product</label>
+                <select id="saleProduct"></select>
+              </div>
+              <div>
+                <label>Quantity</label>
+                <input id="saleQuantity" type="number" min="1" step="1" value="1">
+              </div>
+            </div>
+
+            <button class="primary-btn" onclick="addToCart()">Add to Cart</button>
+          </div>
+
+          <div class="panel">
+            <h2>Cart</h2>
+            <div id="cartList"></div>
+            <h2 id="cartTotal">Total: ₹0</h2>
+            <button class="primary-btn full" onclick="completeSale()">Complete Sale</button>
+            <button class="secondary-btn full" onclick="clearCart()">Clear Cart</button>
+          </div>
+
+          <div class="panel">
+            <h2>Sales History</h2>
+            <div id="salesHistory"></div>
+          </div>
+        </section>
+
+        <section id="page-reports" class="page" hidden>
+          <div class="page-heading">
+            <div>
+              <h1>Reports</h1>
+              <p>View your actual recorded sales.</p>
+            </div>
+            <button class="secondary-btn" onclick="window.print()">Print</button>
+          </div>
+
+          <div class="panel">
+            <label>Select date</label>
+            <input id="reportDate" type="date" onchange="renderReports()">
+            <h2 id="reportDayTotal">Daily total: ₹0</h2>
+            <div id="dailyReport"></div>
+          </div>
+
+          <div class="panel">
+            <label>Select month</label>
+            <input id="reportMonth" type="month" onchange="renderReports()">
+            <h2 id="reportMonthTotal">Monthly total: ₹0</h2>
+            <div id="monthlyReport"></div>
+          </div>
+
+          <div class="panel">
+            <h2>All-time sales</h2>
+            <h2 id="reportAllTotal">₹0</h2>
+          </div>
+        </section>
+
+        <section id="page-dailyNotes" class="page" hidden>
+          <div class="page-heading">
+            <div>
+              <h1>Daily Sales Notes</h1>
+              <p>Keep track of planned and pending sales separately.</p>
+            </div>
+          </div>
+
+          <div class="notice">
+            These are planning notes only. They do not affect actual sales,
+            product stock, customer balances or reports.
+          </div>
+
+          <div class="panel">
+            <h2 id="noteFormTitle">Add Daily Note</h2>
+            <form id="saveNoteForm">
+              <input id="noteId" type="hidden">
+
+              <label>Note date</label>
+              <input id="noteDate" type="date" required>
+
+              <label>Customer name</label>
+              <input id="noteCustomer" placeholder="Customer name">
+
+              <label>Product name</label>
+              <input id="noteProduct" placeholder="Product name">
+
+              <div class="form-grid">
+                <div>
+                  <label>Expected quantity</label>
+                  <input id="noteQuantity" type="number" min="0" step="1" value="0">
+                </div>
+                <div>
+                  <label>Expected amount (₹)</label>
+                  <input id="noteAmount" type="number" min="0" step="0.01" value="0">
+                </div>
+              </div>
+
+              <label>Additional information</label>
+              <textarea id="noteText" rows="3" placeholder="Payment follow-up, pending order, delivery details..."></textarea>
+
+              <div class="form-actions">
+                <button class="primary-btn" type="submit">Save Note</button>
+                <button class="secondary-btn" type="button" onclick="resetNoteForm()">Clear</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="panel">
+            <label>View notes for date</label>
+            <input id="notesFilterDate" type="date" onchange="renderNotes()">
+            <div id="notesList"></div>
+          </div>
+        </section>
+
+        <section id="page-profile" class="page" hidden>
+          <div class="page-heading">
+            <div>
+              <h1>Profile</h1>
+              <p>Your account information.</p>
+            </div>
+          </div>
+
+          <div class="panel">
+            <form id="profileForm">
+              <label>Full name</label>
+              <input id="profileName" required>
+              <label>Registered phone number</label>
+              <input id="profilePhone" disabled>
+              <label>Gender</label>
+              <select id="profileGender">
+                <option>Male</option>
+                <option>Female</option>
+                <option>Other</option>
+                <option>Prefer not to say</option>
+              </select>
+              <label>Business type</label>
+              <input id="profileBusiness">
+              <button class="primary-btn" type="submit">Save Profile</button>
+            </form>
+          </div>
+        </section>
+
+        <section id="page-settings" class="page" hidden>
+          <div class="page-heading">
+            <div>
+              <h1>Settings</h1>
+              <p>Manage your reminders and preferences.</p>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h2>WhatsApp Daily Reminders</h2>
+            <p>Enter the WhatsApp number where reminders should be sent.</p>
+
+            <form id="reminderForm">
+              <label>WhatsApp number (with country code)</label>
+              <input id="whatsappNumber" type="tel" placeholder="e.g. +91XXXXXXXXXX">
+
+              <label class="check-row">
+                <input id="remindersEnabled" type="checkbox">
+                Enable daily reminder preference
+              </label>
+
+              <p class="small-note">
+                Planned reminder times: 8:00 PM and 10:00 PM.
+                Actual WhatsApp delivery requires a connected WhatsApp Business
+                service and server-side scheduling.
+              </p>
+
+              <button class="primary-btn" type="submit">Save Reminder Settings</button>
+            </form>
+          </div>
+
+          <div class="panel">
+            <h2>Data</h2>
+            <p>Your current data is stored locally in this browser.</p>
+            <button class="secondary-btn" onclick="exportBackup()">Download Backup</button>
+          </div>
+        </section>
+
+        <section id="page-recycle" class="page" hidden>
+          <div class="page-heading">
+            <div>
+              <h1>Recycle Bin</h1>
+              <p>Restore deleted records and expired daily notes.</p>
+            </div>
+          </div>
+
+          <div class="notice">
+            Daily Sales Notes are kept here for 10 days after their selected
+            date ends. Other deleted records are also listed here.
+          </div>
+
+          <div class="panel">
+            <h2>Deleted Records</h2>
+            <div id="recycleList"></div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+                                            </html>
