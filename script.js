@@ -1360,3 +1360,753 @@ function completeSale() {
 /* =========================================
    END OF PART 3
 ========================================= */
+/* =========================================
+   PART 4 - DAILY SALES NOTES
+========================================= */
+
+function renderNotes(content) {
+  const data = getData();
+
+  content.innerHTML = `
+    <div class="section-head">
+      <h3>Daily Sales Notes</h3>
+      <button class="primary" onclick="openNoteForm()">
+        + Add Note
+      </button>
+    </div>
+
+    <label>Select Date
+      <input type="date" id="noteDate"
+        value="${todayKey()}"
+        onchange="drawNotes()">
+    </label>
+
+    <div id="noteFormArea"></div>
+    <div id="notesList"></div>
+  `;
+
+  drawNotes();
+}
+
+function openNoteForm(note = null) {
+  editingNoteId = note ? note.id : null;
+
+  const data = getData();
+
+  $("noteFormArea").innerHTML = `
+    <div class="form-card">
+      <h3>${note ? "Edit Note" : "New Sales Note"}</h3>
+
+      <label>Date
+        <input type="date" id="noteFormDate"
+          value="${note?.date || todayKey()}"
+          min="${todayKey()}">
+      </label>
+
+      <label>Customer
+        <select id="noteCustomer">
+          <option value="">General</option>
+          ${data.customers.map(customer => `
+            <option value="${customer.id}"
+              ${note?.customerId === customer.id ? "selected" : ""}>
+              ${escapeHTML(customer.name)}
+            </option>
+          `).join("")}
+        </select>
+      </label>
+
+      <label>Product
+        <input id="noteProduct"
+          value="${escapeHTML(note?.product || "")}">
+      </label>
+
+      <label>Expected Quantity
+        <input type="number" id="noteQuantity"
+          min="0" value="${note?.quantity ?? 1}">
+      </label>
+
+      <label>Expected Amount (₹)
+        <input type="number" id="noteAmount"
+          min="0" step="0.01"
+          value="${note?.amount ?? 0}">
+      </label>
+
+      <label>Additional Information
+        <textarea id="noteInfo">${escapeHTML(note?.info || "")}</textarea>
+      </label>
+
+      <div class="form-actions">
+        <button class="primary" onclick="saveNote()">
+          Save Note
+        </button>
+
+        <button class="secondary" onclick="closeNoteForm()">
+          Cancel
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function closeNoteForm() {
+  editingNoteId = null;
+  $("noteFormArea").innerHTML = "";
+}
+
+function saveNote() {
+  const data = getData();
+
+  const date = $("noteFormDate").value;
+  const customerId = $("noteCustomer").value;
+  const product = $("noteProduct").value.trim();
+  const quantity = Number($("noteQuantity").value);
+  const amount = Number($("noteAmount").value);
+  const info = $("noteInfo").value.trim();
+
+  if (!date || !product) {
+    showToast("Enter date and product.");
+    return;
+  }
+
+  if (date < todayKey()) {
+    showToast("Past dates cannot be added.");
+    return;
+  }
+
+  if (!Number.isInteger(quantity) || quantity < 0 ||
+      !Number.isFinite(amount) || amount < 0) {
+    showToast("Enter valid quantity and amount.");
+    return;
+  }
+
+  const customer = data.customers.find(
+    item => item.id === customerId
+  );
+
+  const noteData = {
+    date,
+    customerId,
+    customerName: customer ? customer.name : "General",
+    product,
+    quantity,
+    amount,
+    info
+  };
+
+  if (editingNoteId) {
+    const note = data.notes.find(
+      item => item.id === editingNoteId
+    );
+
+    if (note) Object.assign(note, noteData);
+  } else {
+    data.notes.push({
+      id: makeId(),
+      ...noteData,
+      createdAt: new Date().toISOString()
+    });
+  }
+
+  saveData();
+  closeNoteForm();
+  drawNotes();
+  showToast("Note saved.");
+}
+
+function drawNotes() {
+  const data = getData();
+  const selectedDate = $("noteDate")?.value || todayKey();
+  const list = $("notesList");
+
+  if (!list) return;
+
+  const notes = data.notes.filter(
+    note => note.date === selectedDate
+  );
+
+  if (!notes.length) {
+    list.innerHTML = `
+      <div class="panel empty">No notes for this date.</div>
+    `;
+    return;
+  }
+
+  list.innerHTML = notes.map(note => `
+    <div class="panel">
+      <div class="section-head">
+        <b>${escapeHTML(note.product)}</b>
+
+        <div class="actions">
+          <button class="secondary"
+            onclick="editNote('${note.id}')">
+            Edit
+          </button>
+
+          <button class="danger"
+            onclick="deleteNote('${note.id}')">
+            Delete
+          </button>
+        </div>
+      </div>
+
+      <p>Customer: ${escapeHTML(note.customerName)}</p>
+      <p>Quantity: ${note.quantity}</p>
+      <p>Expected amount: ${money(note.amount)}</p>
+      <p>${escapeHTML(note.info || "")}</p>
+    </div>
+  `).join("");
+}
+
+function editNote(id) {
+  const note = getData().notes.find(
+    item => item.id === id
+  );
+
+  if (note) openNoteForm(note);
+}
+
+function deleteNote(id) {
+  const data = getData();
+
+  if (!confirm("Move this note to Recycle Bin?")) return;
+
+  const index = data.notes.findIndex(
+    item => item.id === id
+  );
+
+  if (index < 0) return;
+
+  const note = data.notes.splice(index, 1)[0];
+
+  data.bin.push({
+    id: makeId(),
+    type: "note",
+    record: note,
+    deletedAt: new Date().toISOString()
+  });
+
+  saveData();
+  drawNotes();
+  showToast("Note moved to Recycle Bin.");
+}
+
+/* =========================================
+   PART 4 - REPORTS
+========================================= */
+
+function renderReports(content) {
+  content.innerHTML = `
+    <h3>Sales Reports</h3>
+
+    <div class="form-card">
+      <label>Report Type
+        <select id="reportType" onchange="drawReport()">
+          <option value="daily">Daily Sales</option>
+          <option value="monthly">Monthly Sales</option>
+          <option value="all">All-time Sales</option>
+        </select>
+      </label>
+
+      <label id="reportDateLabel">Select Date
+        <input type="date" id="reportDate"
+          value="${todayKey()}" onchange="drawReport()">
+      </label>
+
+      <label id="reportMonthLabel" class="hidden">
+        Select Month
+        <input type="month" id="reportMonth"
+          value="${todayKey().slice(0, 7)}"
+          onchange="drawReport()">
+      </label>
+    </div>
+
+    <div id="reportResult"></div>
+  `;
+
+  drawReport();
+}
+
+function drawReport() {
+  const data = getData();
+
+  const type = $("reportType").value;
+  const dateLabel = $("reportDateLabel");
+  const monthLabel = $("reportMonthLabel");
+
+  dateLabel.classList.toggle("hidden", type !== "daily");
+  monthLabel.classList.toggle("hidden", type !== "monthly");
+
+  let sales = [];
+
+  if (type === "daily") {
+    const date = $("reportDate").value;
+
+    sales = data.sales.filter(
+      sale => sale.date === date
+    );
+  }
+
+  if (type === "monthly") {
+    const month = $("reportMonth").value;
+
+    sales = data.sales.filter(
+      sale => sale.date?.startsWith(month)
+    );
+  }
+
+  if (type === "all") {
+    sales = [...data.sales];
+  }
+
+  const total = totalSales(sales);
+
+  $("reportResult").innerHTML = `
+    <div class="panel">
+      <h3>Total Sales: ${money(total)}</h3>
+      <p>Number of transactions: ${sales.length}</p>
+
+      <button class="primary" onclick="printReport()">
+        Print / Save PDF
+      </button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Customer</th>
+            <th>Items</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          ${sales.map(sale => `
+            <tr>
+              <td>${formatDate(sale.date)}</td>
+              <td>${escapeHTML(sale.customerName)}</td>
+              <td>${sale.items.map(item =>
+                `${escapeHTML(item.name)} × ${item.quantity}`
+              ).join(", ")}</td>
+              <td>${money(sale.total)}</td>
+            </tr>
+          `).join("")}
+
+          ${sales.length ? "" : `
+            <tr>
+              <td colspan="4" class="empty">
+                No sales found.
+              </td>
+            </tr>
+          `}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  window.currentReportSales = sales;
+}
+
+function printReport() {
+  const sales = window.currentReportSales || [];
+
+  const rows = sales.map(sale => `
+    <tr>
+      <td>${formatDate(sale.date)}</td>
+      <td>${escapeHTML(sale.customerName)}</td>
+      <td>${sale.items.map(item =>
+        `${escapeHTML(item.name)} × ${item.quantity}`
+      ).join(", ")}</td>
+      <td>${money(sale.total)}</td>
+    </tr>
+  `).join("");
+
+  const total = totalSales(sales);
+
+  const reportWindow = window.open("", "_blank");
+
+  if (!reportWindow) {
+    showToast("Allow pop-ups to print the report.");
+    return;
+  }
+
+  reportWindow.document.write(`
+    <html>
+    <head>
+      <title>Areev Sales Report</title>
+      <style>
+        body{font-family:Arial;padding:25px}
+        h2{text-align:center}
+        table{width:100%;border-collapse:collapse}
+        th,td{border:1px solid #ccc;padding:9px;text-align:left}
+      </style>
+    </head>
+    <body>
+      <h2>Areev Sales Manager</h2>
+      <h3>Sales Report</h3>
+      <p>Total Sales: ${money(total)}</p>
+      <table>
+        <tr>
+          <th>Date</th>
+          <th>Customer</th>
+          <th>Items</th>
+          <th>Total</th>
+        </tr>
+        ${rows}
+      </table>
+      <script>
+        window.onload = function(){ window.print(); };
+      <\/script>
+    </body>
+    </html>
+  `);
+
+  reportWindow.document.close();
+}
+
+/* =========================================
+   PART 4 - PROFILE
+========================================= */
+
+function renderProfile(content) {
+  const data = getData();
+  const profile = data.profile;
+
+  content.innerHTML = `
+    <div class="form-card">
+      <h3>My Profile</h3>
+
+      <label>Full Name
+        <input id="profileName"
+          value="${escapeHTML(profile.name || data.name)}">
+      </label>
+
+      <label>Phone Number
+        <input id="profilePhone"
+          value="${escapeHTML(profile.phone || data.phone)}">
+      </label>
+
+      <label>Gender
+        <select id="profileGender">
+          <option value="">Select</option>
+          <option ${profile.gender === "Male" ? "selected" : ""}>Male</option>
+          <option ${profile.gender === "Female" ? "selected" : ""}>Female</option>
+          <option ${profile.gender === "Prefer not to say" ? "selected" : ""}>Prefer not to say</option>
+        </select>
+      </label>
+
+      <label>Business Type
+        <input id="profileBusiness"
+          value="${escapeHTML(profile.business || data.business)}">
+      </label>
+
+      <label>Profile Photo
+        <input id="profilePhoto" type="file" accept="image/*">
+      </label>
+
+      <button class="primary" onclick="saveProfile()">
+        Save Profile
+      </button>
+    </div>
+  `;
+}
+
+function saveProfile() {
+  const data = getData();
+
+  const name = $("profileName").value.trim();
+  const phone = $("profilePhone").value.trim();
+  const gender = $("profileGender").value;
+  const business = $("profileBusiness").value.trim();
+
+  if (!name || !phone) {
+    showToast("Name and phone are required.");
+    return;
+  }
+
+  data.profile.name = name;
+  data.profile.phone = phone;
+  data.profile.gender = gender;
+  data.profile.business = business;
+
+  data.name = name;
+  data.phone = phone;
+  data.business = business;
+
+  const file = $("profilePhoto").files[0];
+
+  if (file) {
+    if (!file.type.startsWith("image/")) {
+      showToast("Select an image file.");
+      return;
+    }
+
+    if (file.size > 1024 * 1024) {
+      showToast("Photo must be smaller than 1 MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = function() {
+      data.profile.photo = reader.result;
+
+      if (saveDatabase()) {
+        updateUserDetails();
+        showToast("Profile saved.");
+      }
+    };
+
+    reader.readAsDataURL(file);
+    return;
+  }
+
+  if (saveDatabase()) {
+    updateUserDetails();
+    showToast("Profile saved.");
+  }
+}
+
+/* =========================================
+   PART 4 - SETTINGS
+========================================= */
+
+function renderSettings(content) {
+  const settings = getData().settings;
+
+  content.innerHTML = `
+    <div class="form-card">
+      <h3>Settings</h3>
+
+      <label>Language
+        <select id="languageSetting">
+          <option value="en"
+            ${settings.language === "en" ? "selected" : ""}>
+            English
+          </option>
+          <option value="te"
+            ${settings.language === "te" ? "selected" : ""}>
+            Telugu
+          </option>
+          <option value="hi"
+            ${settings.language === "hi" ? "selected" : ""}>
+            Hindi
+          </option>
+        </select>
+      </label>
+
+      <label>WhatsApp Number for Reminders
+        <input id="whatsappNumber"
+          inputmode="tel"
+          placeholder="Enter WhatsApp number"
+          value="${escapeHTML(settings.whatsappNumber || "")}">
+      </label>
+
+      <label class="checkline">
+        <input type="checkbox" id="reminderEnabled"
+          ${settings.reminderEnabled ? "checked" : ""}>
+        Enable reminder preference
+      </label>
+
+      <button class="primary" onclick="saveSettings()">
+        Save Settings
+      </button>
+
+      <div class="inline-note">
+        This prototype only saves your reminder preference.
+        It does not automatically send WhatsApp messages.
+        Automatic reminders require an approved WhatsApp
+        service and a server-side scheduler.
+      </div>
+    </div>
+  `;
+}
+
+function saveSettings() {
+  const settings = getData().settings;
+
+  settings.language = $("languageSetting").value;
+  settings.whatsappNumber = $("whatsappNumber").value.trim();
+  settings.reminderEnabled = $("reminderEnabled").checked;
+
+  if (saveDatabase()) {
+    showToast("Settings saved.");
+  }
+}
+
+/* =========================================
+   PART 4 - RECYCLE BIN
+========================================= */
+
+function renderBin(content) {
+  const data = getData();
+
+  content.innerHTML = `
+    <div class="section-head">
+      <h3>Recycle Bin</h3>
+
+      <button class="danger"
+        onclick="emptyBin()">
+        Empty Recycle Bin
+      </button>
+    </div>
+
+    <div id="binList"></div>
+  `;
+
+  drawBin();
+}
+
+function drawBin() {
+  const data = getData();
+  const list = $("binList");
+
+  if (!list) return;
+
+  if (!data.bin.length) {
+    list.innerHTML = `
+      <div class="panel empty">
+        Recycle Bin is empty.
+      </div>
+    `;
+    return;
+  }
+
+  list.innerHTML = data.bin.map(item => `
+    <div class="panel">
+      <div class="section-head">
+        <div>
+          <b>${escapeHTML(item.record.name || item.record.product || item.type)}</b>
+          <p class="small muted">
+            Type: ${escapeHTML(item.type)}
+          </p>
+        </div>
+
+        <div class="actions">
+          <button class="secondary"
+            onclick="restoreItem('${item.id}')">
+            Restore
+          </button>
+
+          <button class="danger"
+            onclick="permanentlyDelete('${item.id}')">
+            Delete Permanently
+          </button>
+        </div>
+      </div>
+    </div>
+  `).join("");
+}
+
+function restoreItem(id) {
+  const data = getData();
+
+  const index = data.bin.findIndex(
+    item => item.id === id
+  );
+
+  if (index < 0) return;
+
+  const item = data.bin[index];
+
+  if (item.type === "product") {
+    data.products.push(item.record);
+  } else if (item.type === "customer") {
+    data.customers.push(item.record);
+  } else if (item.type === "note") {
+    data.notes.push(item.record);
+  }
+
+  data.bin.splice(index, 1);
+
+  saveData();
+  drawBin();
+  showToast("Item restored.");
+}
+
+function permanentlyDelete(id) {
+  const data = getData();
+
+  if (!confirm("Permanently delete this item?")) return;
+
+  data.bin = data.bin.filter(
+    item => item.id !== id
+  );
+
+  saveData();
+  drawBin();
+  showToast("Item permanently deleted.");
+}
+
+function emptyBin() {
+  const data = getData();
+
+  if (!data.bin.length) {
+    showToast("Recycle Bin is already empty.");
+    return;
+  }
+
+  if (!confirm("Permanently delete everything in Recycle Bin?")) {
+    return;
+  }
+
+  data.bin = [];
+
+  saveData();
+  drawBin();
+  showToast("Recycle Bin emptied.");
+}
+
+/* =========================================
+   APPLICATION INITIALIZATION
+========================================= */
+
+function initializeApp() {
+  document.querySelectorAll("[data-auth]").forEach(button => {
+    button.addEventListener("click", () => {
+      setAuthMode(button.dataset.auth);
+    });
+  });
+
+  $("authForm").addEventListener(
+    "submit",
+    handleAuthSubmit
+  );
+
+  $("logoutBtn").addEventListener("click", logout);
+
+  $("sideNav").addEventListener("click", event => {
+    const button = event.target.closest("[data-page]");
+
+    if (button) {
+      showPage(button.dataset.page);
+    }
+  });
+
+  $("menuToggle").addEventListener("click", () => {
+    document.querySelector(".sidebar").classList.toggle("open");
+  });
+
+  const savedSession = localStorage.getItem(SESSION_KEY);
+
+  if (savedSession) {
+    const account = database.accounts.find(
+      item => item.id === savedSession
+    );
+
+    if (account) {
+      currentUser = account.id;
+      openApplication();
+      return;
+    }
+  }
+
+  setAuthMode("login");
+}
+
+document.addEventListener("DOMContentLoaded", initializeApp);
+
+/* =========================================
+   END OF SCRIPT.JS
+========================================= */
